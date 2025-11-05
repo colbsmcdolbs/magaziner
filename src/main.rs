@@ -1,17 +1,27 @@
+mod epub;
 mod fetch;
 mod parser;
-mod epub;
 
 use anyhow::Result;
-use fetch::fetch_html_body;
-use parser::{extract_article_links, extract_article_content};
+use clap::Parser;
 use epub::build_epub;
+use fetch::fetch_html_body;
+use parser::{extract_article_content, extract_article_links};
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    url: String,
+}
 
 fn main() -> Result<()> {
-    let url = "https://www.lrb.co.uk/the-paper/v43/n01";
-    let doc = fetch_html_body(url)?;
+    let args = Args::parse();
+    let url = args.url;
+
+    let doc = fetch_html_body(&url)?;
     println!("Parsed HTML body");
-    let (links, title) = extract_article_links(&doc);
+    let (links, title, css_sheet) = extract_article_links(&doc);
     println!("Extracted links");
 
     let mut articles = Vec::new();
@@ -23,7 +33,7 @@ fn main() -> Result<()> {
         articles.push((title, body));
     }
 
-    build_epub(&title, articles)?;
+    build_epub(&title, articles, &css_sheet)?;
     println!("Epub Completed");
     Ok(())
 }

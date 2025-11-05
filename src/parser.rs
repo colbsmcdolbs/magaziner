@@ -1,39 +1,47 @@
 use scraper::{Html, Selector};
 
-pub fn extract_article_links(doc: &Html) -> (Vec<String>, String) {
+pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String) {
     let selector = Selector::parse("a.toc-item").unwrap();
     let title_selector = Selector::parse("title").unwrap();
+    let css_selector = Selector::parse("style").unwrap();
+    let mut css_content = String::new();
 
-    let links = doc.select(&selector)
+    let links = doc
+        .select(&selector)
         .filter_map(|el| el.value().attr("href"))
         .map(|s| format!("https://www.lrb.co.uk{}", s))
         .collect();
 
-    let title = doc.select(&title_selector)
-    .next()
-    .map(|el| el.text().collect::<String>())
-    .map(|t| {
-        t.split_once("Vol.")
-            .map(|(_, rest)| format!("Vol.{}", rest.trim()))
-            .unwrap_or(t)
-    })
-    .unwrap_or_else(|| "Untitled".into());
-        
+    let title = doc
+        .select(&title_selector)
+        .next()
+        .map(|el| el.text().collect::<String>())
+        .map(|t| {
+            t.split_once("Vol.")
+                .map(|(_, rest)| format!("Vol.{}", rest.trim()))
+                .unwrap_or(t)
+        })
+        .unwrap_or_else(|| "Untitled".into());
 
-    (links, title)
+    for el in doc.select(&css_selector) {
+        css_content.push_str(&el.text().collect::<String>());
+    }
+
+    (links, title, css_content)
 }
-
 
 pub fn extract_article_content(doc: &Html) -> (String, String) {
     let title_selector = Selector::parse("title").unwrap();
     let body_selector = Selector::parse("div.article-copy").unwrap();
 
-    let title = doc.select(&title_selector)
+    let title = doc
+        .select(&title_selector)
         .next()
         .map(|el| el.text().collect::<String>())
         .unwrap_or_else(|| "Untitled".into());
 
-    let body = doc.select(&body_selector)
+    let body = doc
+        .select(&body_selector)
         .map(|el| el.inner_html())
         .collect::<Vec<_>>()
         .join("\n\n");
@@ -55,12 +63,15 @@ mod tests {
     #[test]
     fn test_extract_article_links_from_issue() {
         let doc = load_html_fixture("src/test/files/lrb/issue.html");
-        let (links, title) = extract_article_links(&doc);
+        let (links, title, css_sheet) = extract_article_links(&doc);
 
         assert!(!links.is_empty(), "Expected at least one article link");
         assert!(title == "Vol.1 No. 1 · 25 October 1979");
-        assert!(links.iter().all(|l| l.starts_with("https://www.lrb.co.uk")),
-                "All links should be absolute LRB URLs");
+        assert!(
+            links.iter().all(|l| l.starts_with("https://www.lrb.co.uk")),
+            "All links should be absolute LRB URLs"
+        );
+        assert!(!css_sheet.is_empty());
         // Uncomment for debugging
         // println!("{}", title);
         // println!("Parsed {} links:", links.len());

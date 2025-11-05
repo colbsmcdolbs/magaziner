@@ -2,10 +2,12 @@ use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
 use std::fs::File;
 
-pub fn build_epub(title: &str, articles: Vec<(String, String)>) -> Result<()> {
+pub fn build_epub(title: &str, articles: Vec<(String, String)>, css_sheet: &str) -> Result<()> {
     let mut epub = EpubBuilder::new(ZipLibrary::new()?)?;
     epub.metadata("title", title)?
         .metadata("author", "London Review of Books")?;
+
+    epub.stylesheet(css_sheet.as_bytes())?;
 
     let title_page = format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
@@ -58,17 +60,11 @@ pub fn build_epub(title: &str, articles: Vec<(String, String)>) -> Result<()> {
     )?;
 
     for (i, (article_title, body)) in articles.into_iter().enumerate() {
-    let filename = format!("article{}.xhtml", i);
-    let safe_body = body
-        .replace("<br>", "<br />")
-        .replace("<hr>", "<hr />")
-        .replace("<img ", "<img ")
-        .replace("<br/>", "<br />")
-        .replace("<hr/>", "<hr />");
+        let filename = format!("article{}.xhtml", i);
+        let safe_body = sanitize_html_for_epub(&body);
 
-
-    let xhtml = format!(
-        r#"<?xml version="1.0" encoding="utf-8"?>
+        let xhtml = format!(
+            r#"<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
@@ -91,18 +87,33 @@ pub fn build_epub(title: &str, articles: Vec<(String, String)>) -> Result<()> {
     {}
   </body>
 </html>"#,
-        article_title, article_title, safe_body
-    );
+            article_title, article_title, safe_body
+        );
 
-    epub.add_content(
-        EpubContent::new(filename, xhtml.as_bytes())
-            .title(&article_title)
-            .reftype(ReferenceType::Text),
-    )?;
-}
-
+        epub.add_content(
+            EpubContent::new(filename, xhtml.as_bytes())
+                .title(&article_title)
+                .reftype(ReferenceType::Text),
+        )?;
+    }
 
     let file = File::create(format!("{}.epub", title))?;
     epub.generate(file)?;
     Ok(())
+}
+
+fn sanitize_html_for_epub(html: &str) -> String {
+    html.replace("&nbsp;", "&#160;")
+        .replace("&mdash;", "&#8212;")
+        .replace("&ndash;", "&#8211;")
+        .replace("&lsquo;", "&#8216;")
+        .replace("&rsquo;", "&#8217;")
+        .replace("&ldquo;", "&#8220;")
+        .replace("&rdquo;", "&#8221;")
+        .replace("&hellip;", "&#8230;")
+        .replace("<br>", "<br />")
+        .replace("<hr>", "<hr />")
+        .replace("<img ", "<img ")
+        .replace("<br/>", "<br />")
+        .replace("<hr/>", "<hr />")
 }
