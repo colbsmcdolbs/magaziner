@@ -45,6 +45,7 @@ pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String, String
 
 pub fn extract_article_content(doc: &Html) -> (String, String) {
     let title_selector = Selector::parse("title").unwrap();
+    let reviewed_items_selector = Selector::parse("div.reviewed-items").unwrap();
     let body_selector = Selector::parse("div.article-copy").unwrap();
 
     let title = doc
@@ -53,13 +54,21 @@ pub fn extract_article_content(doc: &Html) -> (String, String) {
         .map(|el| el.text().collect::<String>())
         .unwrap_or_else(|| "Untitled".into());
 
+    let reviewed_items = doc
+        .select(&reviewed_items_selector)
+        .map(|el| el.inner_html())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
     let body = doc
         .select(&body_selector)
         .map(|el| el.inner_html())
         .collect::<Vec<_>>()
         .join("\n\n");
 
-    (title, body)
+    let complete_article = format!("{reviewed_items}{body}");
+
+    (title, complete_article)
 }
 
 #[cfg(test)]

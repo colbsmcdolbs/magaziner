@@ -1,6 +1,7 @@
 use crate::fetch::download_image;
 use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
+use regex::Regex;
 use std::fs::{File, remove_file};
 
 pub fn build_epub(
@@ -122,7 +123,8 @@ pub fn build_epub(
 }
 
 fn sanitize_html_for_epub(html: &str) -> String {
-    html.replace("&nbsp;", "&#160;")
+    let body = html
+        .replace("&nbsp;", "&#160;")
         .replace("&mdash;", "&#8212;")
         .replace("&ndash;", "&#8211;")
         .replace("&lsquo;", "&#8216;")
@@ -134,5 +136,11 @@ fn sanitize_html_for_epub(html: &str) -> String {
         .replace("<hr>", "<hr />")
         .replace("<img ", "<img ")
         .replace("<br/>", "<br />")
-        .replace("<hr/>", "<hr />")
+        .replace("<hr/>", "<hr />");
+
+    let iframe_regex = Regex::new(r"(?is)<iframe.*?</iframe>").unwrap();
+    let stripped = iframe_regex.replace_all(&body, "").into_owned();
+
+    let img_regex = Regex::new(r"(?is)<img[^>]*>").unwrap();
+    img_regex.replace_all(&stripped, "").to_string()
 }

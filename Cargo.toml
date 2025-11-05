@@ -9,4 +9,5 @@ scraper = "0.24"
 epub-builder = "0.8"
 anyhow = "1"
 clap = { version = "4.5.51", features = ["derive"] }
+regex = "1.12.2"
 
