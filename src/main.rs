@@ -21,7 +21,8 @@ fn main() -> Result<()> {
 
     let doc = fetch_html_body(&url)?;
     println!("Parsed HTML body");
-    let (links, title, css_sheet) = extract_article_links(&doc);
+
+    let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
     println!("Extracted links");
 
     let mut articles = Vec::new();
@@ -33,7 +34,7 @@ fn main() -> Result<()> {
         articles.push((title, body));
     }
 
-    build_epub(&title, articles, &css_sheet)?;
+    build_epub(&title, articles, &css_sheet, &image_uri)?;
     println!("Epub Completed");
     Ok(())
 }

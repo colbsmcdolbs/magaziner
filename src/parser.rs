@@ -1,13 +1,13 @@
 use scraper::{Html, Selector};
 
-pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String) {
-    let selector = Selector::parse("a.toc-item").unwrap();
+pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String, String) {
+    let articles_selector = Selector::parse("a.toc-item").unwrap();
     let title_selector = Selector::parse("title").unwrap();
     let css_selector = Selector::parse("style").unwrap();
-    let mut css_content = String::new();
+    let cover_selector = Selector::parse("div.article-issue-cover-image img").unwrap();
 
     let links = doc
-        .select(&selector)
+        .select(&articles_selector)
         .filter_map(|el| el.value().attr("href"))
         .map(|s| format!("https://www.lrb.co.uk{}", s))
         .collect();
@@ -23,11 +23,24 @@ pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String) {
         })
         .unwrap_or_else(|| "Untitled".into());
 
-    for el in doc.select(&css_selector) {
-        css_content.push_str(&el.text().collect::<String>());
-    }
+    let css_content = doc
+        .select(&css_selector)
+        .map(|el| el.text().collect::<String>().trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
 
-    (links, title, css_content)
+    let img = doc.select(&cover_selector).next().unwrap();
+
+    let image_uri = img
+        .value()
+        .attr("data-appsrc")
+        .or_else(|| img.value().attr("srcset"))
+        .or_else(|| img.value().attr("src"))
+        .map(|url| url.split_whitespace().next().unwrap_or("").to_string())
+        .unwrap_or_else(|| "".into());
+
+    (links, title, css_content, image_uri)
 }
 
 pub fn extract_article_content(doc: &Html) -> (String, String) {
@@ -63,7 +76,7 @@ mod tests {
     #[test]
     fn test_extract_article_links_from_issue() {
         let doc = load_html_fixture("src/test/files/lrb/issue.html");
-        let (links, title, css_sheet) = extract_article_links(&doc);
+        let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
 
         assert!(!links.is_empty(), "Expected at least one article link");
         assert!(title == "Vol.1 No. 1 · 25 October 1979");
@@ -72,6 +85,7 @@ mod tests {
             "All links should be absolute LRB URLs"
         );
         assert!(!css_sheet.is_empty());
+        assert!(!image_uri.is_empty());
         // Uncomment for debugging
         // println!("{}", title);
         // println!("Parsed {} links:", links.len());

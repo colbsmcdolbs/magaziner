@@ -1,11 +1,30 @@
+use crate::fetch::download_image;
 use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
-use std::fs::File;
+use std::fs::{File, remove_file};
 
-pub fn build_epub(title: &str, articles: Vec<(String, String)>, css_sheet: &str) -> Result<()> {
+pub fn build_epub(
+    title: &str,
+    articles: Vec<(String, String)>,
+    css_sheet: &str,
+    image_uri: &str,
+) -> Result<()> {
     let mut epub = EpubBuilder::new(ZipLibrary::new()?)?;
     epub.metadata("title", title)?
         .metadata("author", "London Review of Books")?;
+
+    if !image_uri.trim().is_empty() && image_uri.starts_with("http") {
+        let cover_path = "cover.jpg";
+        download_image(image_uri, cover_path)?;
+
+        {
+            let mut cover_file = File::open(cover_path)?;
+            epub.add_cover_image("cover.jpg", &mut cover_file, "image/jpeg")?;
+            println!("Successfully added cover image to epub")
+        }
+
+        remove_file(cover_path)?;
+    }
 
     epub.stylesheet(css_sheet.as_bytes())?;
 
