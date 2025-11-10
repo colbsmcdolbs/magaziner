@@ -3,9 +3,11 @@ use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
 use regex::Regex;
 use std::fs::{File, remove_file};
+use std::path::PathBuf;
 
 pub fn build_epub(
     title: &str,
+    output: &PathBuf,
     articles: Vec<(String, String)>,
     css_sheet: &str,
     image_uri: &str,
@@ -117,8 +119,10 @@ pub fn build_epub(
         )?;
     }
 
-    let file = File::create(format!("{}.epub", title))?;
+    let output_path = output.join(format!("{}.epub", title));
+    let file = File::create(&output_path)?;
     epub.generate(file)?;
+    println!("Saved EPUB to {}", output_path.display());
     Ok(())
 }
 

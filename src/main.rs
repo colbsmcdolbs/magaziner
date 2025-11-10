@@ -8,18 +8,43 @@ use clap::Parser;
 use epub::build_epub;
 use fetch::fetch_html_body;
 use parser::{extract_article_content, extract_article_links};
+use std::path::PathBuf;
 use validation::validate_lrb_url;
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "magaziner",
+    version,
+    about = "Generate epub files from Magazine archives",
+    long_about = None
+)]
+
 struct Args {
-    #[arg(short, long, value_parser = validate_lrb_url)]
+    #[arg(
+        short,
+        long,
+        value_parser = validate_lrb_url,
+        help = "Magazine archive URL"
+    )]
     url: String,
+
+    #[arg(
+        long,
+        short,
+        help = "Output directory for generated EPUBs (Ex: ./downloads",
+        default_value = "."
+    )]
+    pub output: PathBuf,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     let url = args.url;
+    let output = args.output;
+
+    if !output.exists() {
+        std::fs::create_dir_all(&output).expect("Failed to create output directory");
+    }
 
     let doc = fetch_html_body(&url)?;
     println!("Parsed HTML body");
@@ -36,7 +61,7 @@ fn main() -> Result<()> {
         articles.push((title, body));
     }
 
-    build_epub(&title, articles, &css_sheet, &image_uri)?;
+    build_epub(&title, &output, articles, &css_sheet, &image_uri)?;
     println!("Epub Completed");
     Ok(())
 }

@@ -57,7 +57,10 @@ mod tests {
     fn test_invalid_protocol_should_fail() {
         let url = "http://www.lrb.co.uk/the-paper/v47/n06";
         let result = validate_lrb_url(url);
-        assert!(result.is_err(), "Expected http:// to fail (must be https://)");
+        assert!(
+            result.is_err(),
+            "Expected http:// to fail (must be https://)"
+        );
     }
 
     #[test]
