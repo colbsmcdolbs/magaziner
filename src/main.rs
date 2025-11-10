@@ -1,17 +1,19 @@
 mod epub;
 mod fetch;
 mod parser;
+mod validation;
 
 use anyhow::Result;
 use clap::Parser;
 use epub::build_epub;
 use fetch::fetch_html_body;
 use parser::{extract_article_content, extract_article_links};
+use validation::validate_lrb_url;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, value_parser = validate_lrb_url)]
     url: String,
 }
 
