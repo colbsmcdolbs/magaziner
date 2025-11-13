@@ -84,11 +84,11 @@ mod tests {
 
     #[test]
     fn test_extract_article_links_from_issue() {
-        let doc = load_html_fixture("src/test/files/lrb/issue.html");
+        let doc = load_html_fixture("src/test/lrb/issue.html");
         let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
 
         assert!(!links.is_empty(), "Expected at least one article link");
-        assert!(title == "Vol.1 No. 1 · 25 October 1979");
+        assert!(title == "Vol.99 No. 3 · 15 March 2025");
         assert!(
             links.iter().all(|l| l.starts_with("https://www.lrb.co.uk")),
             "All links should be absolute LRB URLs"
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_extract_article_content_from_article() {
-        let doc = load_html_fixture("src/test/files/lrb/article.html");
+        let doc = load_html_fixture("src/test/lrb/article.html");
         let (title, body) = extract_article_content(&doc);
 
         assert!(!title.is_empty(), "Article should have a title");
