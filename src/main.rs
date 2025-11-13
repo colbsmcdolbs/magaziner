@@ -31,22 +31,31 @@ struct Args {
     #[arg(
         long,
         short,
-        help = "Output directory for generated EPUBs (Ex: ./downloads",
+        help = "Output directory for generated EPUBs (Ex: ./downloads)",
         default_value = "."
     )]
     pub output: PathBuf,
+
+    #[arg(
+        short,
+        long,
+        help = "Delay between calls to magazine source in milliseconds (ex: 1000 = 1 second)",
+        default_value_t = 3000
+    )]
+    delay: u64,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     let url = args.url;
     let output = args.output;
+    let delay = args.delay;
 
     if !output.exists() {
         std::fs::create_dir_all(&output).expect("Failed to create output directory");
     }
 
-    let doc = fetch_html_body(&url)?;
+    let doc = fetch_html_body(&url, &delay)?;
     println!("Parsed HTML body");
 
     let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
@@ -55,7 +64,7 @@ fn main() -> Result<()> {
     let mut articles = Vec::new();
 
     for link in links {
-        let article_doc = fetch_html_body(&link)?;
+        let article_doc = fetch_html_body(&link, &delay)?;
         let (title, body) = extract_article_content(&article_doc);
         println!("Extracted article content");
         articles.push((title, body));

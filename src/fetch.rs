@@ -5,13 +5,13 @@ use std::fs::File;
 use std::io::copy;
 use std::{thread, time::Duration};
 
-pub fn fetch_html_body(url: &str) -> Result<Html> {
-    let body = fetch_html_raw(url)?;
+pub fn fetch_html_body(url: &str, delay: &u64) -> Result<Html> {
+    let body = fetch_html_raw(url, delay)?;
     Ok(Html::parse_document(&body))
 }
 
-pub fn fetch_html_raw(url: &str) -> Result<String> {
-    thread::sleep(Duration::from_secs(5));
+pub fn fetch_html_raw(url: &str, delay: &u64) -> Result<String> {
+    thread::sleep(Duration::from_millis(*delay));
 
     let body = blocking::get(url)?.text()?;
     Ok(body)
