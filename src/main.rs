@@ -34,7 +34,7 @@ struct Args {
         help = "Output directory for generated EPUBs (Ex: ./downloads)",
         default_value = "."
     )]
-    pub output: PathBuf,
+    output: PathBuf,
 
     #[arg(
         short,
@@ -43,6 +43,14 @@ struct Args {
         default_value_t = 3000
     )]
     delay: u64,
+
+    #[arg(
+        short,
+        long,
+        help = "Overwrite the output file if it already exists",
+        default_value_t = false
+    )]
+    force: bool,
 }
 
 fn main() -> Result<()> {
@@ -50,6 +58,7 @@ fn main() -> Result<()> {
     let url = args.url;
     let output = args.output;
     let delay = args.delay;
+    let force = args.force;
 
     if !output.exists() {
         std::fs::create_dir_all(&output).expect("Failed to create output directory");
@@ -59,6 +68,15 @@ fn main() -> Result<()> {
     println!("Parsed HTML body");
 
     let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
+
+    let output_path = output.join(format!("{}.epub", title));
+    if output_path.exists() && !force {
+        return Err(anyhow::anyhow!(
+            "File '{}' already exists. Use --force to overwrite.",
+            output_path.display()
+        ));
+    }
+
     println!("Extracted links");
 
     let mut articles = Vec::new();
