@@ -1,6 +1,7 @@
 mod epub;
 mod fetch;
 mod parser;
+mod progress;
 mod validation;
 
 use anyhow::Result;
@@ -8,6 +9,7 @@ use clap::Parser;
 use epub::build_epub;
 use fetch::fetch_html_body;
 use parser::{extract_article_content, extract_article_links};
+use progress::Progress;
 use std::path::PathBuf;
 use validation::validate_lrb_url;
 
@@ -60,13 +62,14 @@ fn main() -> Result<()> {
     let delay = args.delay;
     let force = args.force;
 
+    let mut progress = Progress::new();
+
     if !output.exists() {
         std::fs::create_dir_all(&output).expect("Failed to create output directory");
     }
 
+    progress.next("Fetching issue HTML…");
     let doc = fetch_html_body(&url, &delay)?;
-    println!("Parsed HTML body");
-
     let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
 
     let output_path = output.join(format!("{}.epub", title));
@@ -77,18 +80,24 @@ fn main() -> Result<()> {
         ));
     }
 
-    println!("Extracted links");
+    let article_length = links.len();
+    progress.next(&format!("Extracting {} articles…", article_length));
 
     let mut articles = Vec::new();
-
-    for link in links {
+    for (i, link) in links.iter().enumerate() {
+        progress.substep(i, article_length);
         let article_doc = fetch_html_body(&link, &delay)?;
         let (title, body) = extract_article_content(&article_doc);
-        println!("Extracted article content");
         articles.push((title, body));
     }
 
-    build_epub(&title, &output, articles, &css_sheet, &image_uri)?;
-    println!("Epub Completed");
+    build_epub(
+        &mut progress,
+        &title,
+        &output,
+        articles,
+        &css_sheet,
+        &image_uri,
+    )?;
     Ok(())
 }

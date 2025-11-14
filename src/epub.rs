@@ -1,4 +1,5 @@
 use crate::fetch::download_image;
+use crate::progress::Progress;
 use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
 use regex::Regex;
@@ -6,6 +7,7 @@ use std::fs::{File, remove_file};
 use std::path::PathBuf;
 
 pub fn build_epub(
+    progress: &mut Progress,
     title: &str,
     output: &PathBuf,
     articles: Vec<(String, String)>,
@@ -16,6 +18,7 @@ pub fn build_epub(
     epub.metadata("title", title)?
         .metadata("author", "London Review of Books")?;
 
+    progress.next("Downloading cover…");
     if !image_uri.trim().is_empty() && image_uri.starts_with("http") {
         let cover_path = "cover.jpg";
         download_image(image_uri, cover_path)?;
@@ -23,12 +26,12 @@ pub fn build_epub(
         {
             let mut cover_file = File::open(cover_path)?;
             epub.add_cover_image("cover.jpg", &mut cover_file, "image/jpeg")?;
-            println!("Successfully added cover image to epub")
         }
 
         remove_file(cover_path)?;
     }
 
+    progress.next("Building EPUB…");
     epub.stylesheet(css_sheet.as_bytes())?;
 
     let title_page = format!(
@@ -119,10 +122,13 @@ pub fn build_epub(
         )?;
     }
 
+    progress.next("Saving EPUB…");
     let output_path = output.join(format!("{}.epub", title));
     let file = File::create(&output_path)?;
     epub.generate(file)?;
-    println!("Saved EPUB to {}", output_path.display());
+
+    progress.done(output_path.display());
+
     Ok(())
 }
 
