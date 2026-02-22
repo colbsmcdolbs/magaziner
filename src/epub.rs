@@ -3,25 +3,28 @@ use crate::progress::Progress;
 use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
 use regex::Regex;
-use std::fs::{File, remove_file};
+use reqwest::blocking::Client;
+use std::fs::{remove_file, File};
 use std::path::PathBuf;
 
 pub fn build_epub(
     progress: &mut Progress,
     title: &str,
+    publication_name: &str,
     output: &PathBuf,
     articles: Vec<(String, String)>,
     css_sheet: &str,
     image_uri: &str,
+    client: &Client,
 ) -> Result<()> {
     let mut epub = EpubBuilder::new(ZipLibrary::new()?)?;
     epub.metadata("title", title)?
-        .metadata("author", "London Review of Books")?;
+        .metadata("author", publication_name)?;
 
     progress.next("Downloading cover…");
     if !image_uri.trim().is_empty() && image_uri.starts_with("http") {
         let cover_path = "cover.jpg";
-        download_image(image_uri, cover_path, progress)?;
+        download_image(client, image_uri, cover_path, progress)?;
 
         {
             let mut cover_file = File::open(cover_path)?;
@@ -41,10 +44,10 @@ pub fn build_epub(
   <head><title>{}</title></head>
   <body style="text-align: center; margin-top: 40%;">
     <h1>{}</h1>
-    <h3>London Review of Books</h3>
+    <h3>{}</h3>
   </body>
 </html>"#,
-        title, title
+        title, title, publication_name
     );
 
     epub.add_content(

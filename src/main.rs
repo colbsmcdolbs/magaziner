@@ -1,17 +1,21 @@
+mod adapter;
 mod epub;
 mod fetch;
-mod parser;
+mod harpers_adapter;
+mod london_review_adapter;
 mod progress;
 mod validation;
 
+use adapter::MagazineAdapter;
 use anyhow::Result;
 use clap::Parser;
 use epub::build_epub;
-use fetch::fetch_html_body;
-use parser::{extract_article_content, extract_article_links};
+use fetch::{fetch_html_body, make_client};
+use harpers_adapter::HarpersAdapter;
+use london_review_adapter::LondonReviewAdapter;
 use progress::{Progress, Verbosity};
 use std::path::PathBuf;
-use validation::validate_lrb_url;
+use validation::{detect_source, validate_magazine_url, MagazineSource};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -20,13 +24,12 @@ use validation::validate_lrb_url;
     about = "Generate epub files from Magazine archives",
     long_about = None
 )]
-
 struct Args {
     #[arg(
         short,
         long,
-        value_parser = validate_lrb_url,
-        help = "Magazine archive URL"
+        value_parser = validate_magazine_url,
+        help = "Magazine archive URL (LRB or Harper's)"
     )]
     url: String,
 
@@ -88,15 +91,38 @@ fn main() -> Result<()> {
 
     let mut progress = Progress::new(verbosity);
 
+    let source = detect_source(&url).expect("URL already validated by clap");
+
+    // HARPERS_COOKIE should be set to the raw Cookie header value from an authenticated
+    // browser session (e.g. "wordpress_logged_in_xxx=abc123; other_cookie=value").
+    let harpers_cookie = std::env::var("HARPERS_COOKIE").ok();
+    if matches!(source, MagazineSource::Harpers) && harpers_cookie.is_none() {
+        eprintln!(
+            "Warning: HARPERS_COOKIE env var not set; subscriber content may be inaccessible."
+        );
+    }
+
+    let cookie = match source {
+        MagazineSource::Harpers => harpers_cookie.as_deref(),
+        MagazineSource::LondonReview => None,
+    };
+
+    let client = make_client(cookie)?;
+
+    let adapter: Box<dyn MagazineAdapter> = match source {
+        MagazineSource::LondonReview => Box::new(LondonReviewAdapter),
+        MagazineSource::Harpers => Box::new(HarpersAdapter),
+    };
+
     if !output.exists() {
         std::fs::create_dir_all(&output)?;
     }
 
     progress.next("Fetching issue HTML…");
-    let doc = fetch_html_body(&url, &delay, &progress)?;
-    let (links, title, css_sheet, image_uri) = extract_article_links(&doc, &progress);
+    let doc = fetch_html_body(&client, &url, &delay, &progress)?;
+    let issue = adapter.extract_issue(&doc, &progress);
 
-    let output_path = output.join(format!("{}.epub", title));
+    let output_path = output.join(format!("{}.epub", issue.title));
     if output_path.exists() && !force {
         return Err(anyhow::anyhow!(
             "File '{}' already exists. Use --force to overwrite.",
@@ -104,24 +130,27 @@ fn main() -> Result<()> {
         ));
     }
 
-    let article_length = links.len();
+    let article_length = issue.links.len();
     progress.next(&format!("Extracting {} articles…", article_length));
 
     let mut articles = Vec::new();
-    for (i, link) in links.iter().enumerate() {
+    for (i, link) in issue.links.iter().enumerate() {
         progress.substep(i, article_length);
-        let article_doc = fetch_html_body(&link, &delay, &progress)?;
-        let (title, body) = extract_article_content(&article_doc, &progress);
-        articles.push((title, body));
+        let article_doc = fetch_html_body(&client, link, &delay, &progress)?;
+        let article = adapter.extract_article(&article_doc, &progress);
+        articles.push((article.title, article.body));
     }
 
     build_epub(
         &mut progress,
-        &title,
+        &issue.title,
+        &issue.publication_name,
         &output,
         articles,
-        &css_sheet,
-        &image_uri,
+        &issue.css,
+        &issue.cover_image_uri,
+        &client,
     )?;
+
     Ok(())
 }
