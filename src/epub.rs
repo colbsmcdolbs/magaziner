@@ -21,7 +21,7 @@ pub fn build_epub(
     progress.next("Downloading cover…");
     if !image_uri.trim().is_empty() && image_uri.starts_with("http") {
         let cover_path = "cover.jpg";
-        download_image(image_uri, cover_path)?;
+        download_image(image_uri, cover_path, progress)?;
 
         {
             let mut cover_file = File::open(cover_path)?;
@@ -85,6 +85,7 @@ pub fn build_epub(
     )?;
 
     for (i, (article_title, body)) in articles.into_iter().enumerate() {
+        progress.verbose(&format!("Adding article: {}", article_title));
         let filename = format!("article{}.xhtml", i);
         let safe_body = sanitize_html_for_epub(&body);
 

@@ -1,6 +1,7 @@
+use crate::progress::Progress;
 use scraper::{Html, Selector};
 
-pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String, String) {
+pub fn extract_article_links(doc: &Html, progress: &Progress) -> (Vec<String>, String, String, String) {
     let articles_selector = Selector::parse("a.toc-item").unwrap();
     let title_selector = Selector::parse("title").unwrap();
     let css_selector = Selector::parse("style").unwrap();
@@ -40,10 +41,15 @@ pub fn extract_article_links(doc: &Html) -> (Vec<String>, String, String, String
         .map(|url| url.split_whitespace().next().unwrap_or("").to_string())
         .unwrap_or_else(|| "".into());
 
+    let links: Vec<String> = links;
+    progress.verbose(&format!("Found {} article links", links.len()));
+    progress.verbose(&format!("Issue title: {}", title));
+    progress.verbose(&format!("Cover image: {}", image_uri));
+
     (links, title, css_content, image_uri)
 }
 
-pub fn extract_article_content(doc: &Html) -> (String, String) {
+pub fn extract_article_content(doc: &Html, progress: &Progress) -> (String, String) {
     let title_selector = Selector::parse("title").unwrap();
     let reviewed_items_selector = Selector::parse("div.reviewed-items").unwrap();
     let body_selector = Selector::parse("div.article-copy").unwrap();
@@ -68,12 +74,15 @@ pub fn extract_article_content(doc: &Html) -> (String, String) {
 
     let complete_article = format!("{reviewed_items}{body}");
 
+    progress.verbose(&format!("Extracted: {}", title));
+
     (title, complete_article)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::progress::Verbosity;
     use std::fs;
 
     fn load_html_fixture(path: &str) -> Html {
@@ -85,7 +94,8 @@ mod tests {
     #[test]
     fn test_extract_article_links_from_issue() {
         let doc = load_html_fixture("src/test/lrb/issue.html");
-        let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
+        let progress = Progress::new(Verbosity::Quiet);
+        let (links, title, css_sheet, image_uri) = extract_article_links(&doc, &progress);
 
         assert!(!links.is_empty(), "Expected at least one article link");
         assert!(title == "Vol.99 No. 3 · 15 March 2025");
@@ -106,7 +116,8 @@ mod tests {
     #[test]
     fn test_extract_article_content_from_article() {
         let doc = load_html_fixture("src/test/lrb/article.html");
-        let (title, body) = extract_article_content(&doc);
+        let progress = Progress::new(Verbosity::Quiet);
+        let (title, body) = extract_article_content(&doc, &progress);
 
         assert!(!title.is_empty(), "Article should have a title");
         assert!(body.len() > 100, "Article body should be long enough");

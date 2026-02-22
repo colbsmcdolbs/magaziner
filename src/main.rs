@@ -9,7 +9,7 @@ use clap::Parser;
 use epub::build_epub;
 use fetch::fetch_html_body;
 use parser::{extract_article_content, extract_article_links};
-use progress::Progress;
+use progress::{Progress, Verbosity};
 use std::path::PathBuf;
 use validation::validate_lrb_url;
 
@@ -53,6 +53,22 @@ struct Args {
         default_value_t = false
     )]
     force: bool,
+
+    #[arg(
+        short,
+        long,
+        help = "Print detailed network and parsing logs",
+        conflicts_with = "quiet"
+    )]
+    verbose: bool,
+
+    #[arg(
+        short,
+        long,
+        help = "Suppress all output for script automation",
+        conflicts_with = "verbose"
+    )]
+    quiet: bool,
 }
 
 fn main() -> Result<()> {
@@ -62,15 +78,23 @@ fn main() -> Result<()> {
     let delay = args.delay;
     let force = args.force;
 
-    let mut progress = Progress::new();
+    let verbosity = if args.verbose {
+        Verbosity::Verbose
+    } else if args.quiet {
+        Verbosity::Quiet
+    } else {
+        Verbosity::Normal
+    };
+
+    let mut progress = Progress::new(verbosity);
 
     if !output.exists() {
         std::fs::create_dir_all(&output)?;
     }
 
     progress.next("Fetching issue HTML…");
-    let doc = fetch_html_body(&url, &delay)?;
-    let (links, title, css_sheet, image_uri) = extract_article_links(&doc);
+    let doc = fetch_html_body(&url, &delay, &progress)?;
+    let (links, title, css_sheet, image_uri) = extract_article_links(&doc, &progress);
 
     let output_path = output.join(format!("{}.epub", title));
     if output_path.exists() && !force {
@@ -86,8 +110,8 @@ fn main() -> Result<()> {
     let mut articles = Vec::new();
     for (i, link) in links.iter().enumerate() {
         progress.substep(i, article_length);
-        let article_doc = fetch_html_body(&link, &delay)?;
-        let (title, body) = extract_article_content(&article_doc);
+        let article_doc = fetch_html_body(&link, &delay, &progress)?;
+        let (title, body) = extract_article_content(&article_doc, &progress);
         articles.push((title, body));
     }
 
