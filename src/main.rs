@@ -65,7 +65,7 @@ fn main() -> Result<()> {
     let mut progress = Progress::new();
 
     if !output.exists() {
-        std::fs::create_dir_all(&output).expect("Failed to create output directory");
+        std::fs::create_dir_all(&output)?;
     }
 
     progress.next("Fetching issue HTML…");
