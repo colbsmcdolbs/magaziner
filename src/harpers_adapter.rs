@@ -7,22 +7,78 @@ pub struct HarpersAdapter;
 
 impl MagazineAdapter for HarpersAdapter {
     fn extract_issue(&self, doc: &Html, progress: &Progress) -> IssueData {
-        let link_selector = Selector::parse("div.article-card a").unwrap();
+        let issue_article_sel =
+            Selector::parse("section.issue-articles div.issue-article").unwrap();
+        let reading_item_sel = Selector::parse("section.issue-readings div.reading-item").unwrap();
+        let a_sel = Selector::parse("a").unwrap();
+        let ac_tax_sel = Selector::parse("span.ac-tax").unwrap();
         let title_selector = Selector::parse("title").unwrap();
         let cover_selector = Selector::parse("div.issue-cover img.cover-img").unwrap();
 
-        let mut seen = HashSet::new();
-        let links: Vec<String> = doc
-            .select(&link_selector)
-            .filter_map(|el| el.value().attr("href"))
-            .filter(|href| {
-                // Keep only article URLs (/archive/YYYY/MM/slug), not issue URLs (/archive/YYYY/MM)
-                let parts: Vec<&str> = href.trim_matches('/').split('/').collect();
-                parts.len() >= 4 && parts.first() == Some(&"archive")
+        let mut seen: HashSet<String> = HashSet::new();
+
+        // Collect Readings section links in DOM order
+        let reading_links: Vec<String> = doc
+            .select(&reading_item_sel)
+            .filter_map(|item| {
+                item.select(&a_sel)
+                    .filter_map(|a| a.value().attr("href"))
+                    .find(|href| {
+                        let parts: Vec<&str> = href.trim_matches('/').split('/').collect();
+                        parts.len() >= 4 && parts.first() == Some(&"archive")
+                    })
+                    .map(|href| format!("https://harpers.org{}", href))
             })
-            .map(|href| format!("https://harpers.org{}", href))
-            .filter(|url| seen.insert(url.clone()))
             .collect();
+
+        // Process issue-articles in DOM order (already in magazine sequence).
+        // Insert Readings after the Harper's Index card.
+        let mut links: Vec<String> = Vec::new();
+        let mut readings_inserted = false;
+
+        for article_el in doc.select(&issue_article_sel) {
+            let is_index = article_el
+                .select(&ac_tax_sel)
+                .next()
+                .map(|el| el.text().collect::<String>().contains("Index"))
+                .unwrap_or(false);
+
+            // Prefer /archive/ link; fall back to /harpers-index/ for the Index card.
+            let href_opt = article_el
+                .select(&a_sel)
+                .filter_map(|a| a.value().attr("href"))
+                .find(|href| {
+                    let parts: Vec<&str> = href.trim_matches('/').split('/').collect();
+                    parts.len() >= 4 && parts.first() == Some(&"archive")
+                })
+                .or_else(|| {
+                    if is_index {
+                        article_el
+                            .select(&a_sel)
+                            .filter_map(|a| a.value().attr("href"))
+                            .find(|href| href.contains("/harpers-index/"))
+                    } else {
+                        None
+                    }
+                });
+
+            if let Some(href) = href_opt {
+                let url = format!("https://harpers.org{}", href);
+                if seen.insert(url.clone()) {
+                    links.push(url);
+                }
+            }
+
+            // Insert all Readings articles immediately after Harper's Index.
+            if is_index && !readings_inserted {
+                readings_inserted = true;
+                for r_url in &reading_links {
+                    if seen.insert(r_url.clone()) {
+                        links.push(r_url.clone());
+                    }
+                }
+            }
+        }
 
         let title = doc
             .select(&title_selector)
@@ -60,6 +116,7 @@ impl MagazineAdapter for HarpersAdapter {
         let title_selector = Selector::parse("h1.article-title").unwrap();
         let fallback_title_selector = Selector::parse("title").unwrap();
         let body_selector = Selector::parse("div.wysiwyg-content.entry-content").unwrap();
+        let header_meta_sel = Selector::parse("div.header-meta").unwrap();
 
         let title = doc
             .select(&title_selector)
@@ -75,7 +132,15 @@ impl MagazineAdapter for HarpersAdapter {
 
         let body = doc
             .select(&body_selector)
-            .map(|el| el.inner_html())
+            .map(|el| {
+                let raw = el.inner_html();
+                // Remove the "Adjust / Share" UI controls embedded at the top of the body.
+                if let Some(header_el) = el.select(&header_meta_sel).next() {
+                    raw.replacen(&header_el.html(), "", 1)
+                } else {
+                    raw
+                }
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 
@@ -108,7 +173,10 @@ mod tests {
         assert!(!issue.links.is_empty(), "Expected at least one article link");
         assert_eq!(issue.title, "February 2026");
         assert!(
-            issue.links.iter().all(|l| l.starts_with("https://harpers.org/archive/")),
+            issue.links.iter().all(|l| {
+                l.starts_with("https://harpers.org/archive/")
+                    || l.starts_with("https://harpers.org/harpers-index/")
+            }),
             "All links should be absolute Harper's article URLs"
         );
         assert!(!issue.cover_image_uri.is_empty());
@@ -123,5 +191,18 @@ mod tests {
 
         assert!(!article.title.is_empty(), "Article should have a title");
         assert!(article.body.len() > 100, "Article body should be long enough");
+    }
+
+    #[test]
+    fn test_article_body_excludes_adjust_share_controls() {
+        let doc = load_html_fixture("src/test/harpers/article.html");
+        let progress = Progress::new(Verbosity::Quiet);
+        let adapter = HarpersAdapter;
+        let article = adapter.extract_article(&doc, &progress);
+
+        assert!(
+            !article.body.contains("header-meta"),
+            "Article body should not contain the Adjust/Share UI controls"
+        );
     }
 }
