@@ -72,6 +72,13 @@ struct Args {
         conflicts_with = "verbose"
     )]
     quiet: bool,
+
+    #[arg(
+        short,
+        long,
+        help = "Custom output filename without extension (ex: --name \"My Issue\")"
+    )]
+    name: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -122,7 +129,15 @@ fn main() -> Result<()> {
     let doc = fetch_html_body(&client, &url, &delay, &progress)?;
     let issue = adapter.extract_issue(&doc, &progress);
 
-    let output_path = output.join(format!("{}.epub", issue.title));
+    let magazine_prefix = match source {
+        MagazineSource::Harpers => "Harpers",
+        MagazineSource::LondonReview => "LRB",
+    };
+    let filename = args
+        .name
+        .unwrap_or_else(|| format!("{} - {}", magazine_prefix, issue.title));
+
+    let output_path = output.join(format!("{}.epub", filename));
     if output_path.exists() && !force {
         return Err(anyhow::anyhow!(
             "File '{}' already exists. Use --force to overwrite.",
@@ -145,6 +160,7 @@ fn main() -> Result<()> {
         &mut progress,
         &issue.title,
         &issue.publication_name,
+        &filename,
         &output,
         articles,
         &issue.css,

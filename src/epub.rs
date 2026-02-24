@@ -11,6 +11,7 @@ pub fn build_epub(
     progress: &mut Progress,
     title: &str,
     publication_name: &str,
+    filename: &str,
     output: &PathBuf,
     articles: Vec<(String, String)>,
     css_sheet: &str,
@@ -127,7 +128,7 @@ pub fn build_epub(
     }
 
     progress.next("Saving EPUB…");
-    let output_path = output.join(format!("{}.epub", title));
+    let output_path = output.join(format!("{}.epub", filename));
     let file = File::create(&output_path)?;
     epub.generate(file)?;
 
