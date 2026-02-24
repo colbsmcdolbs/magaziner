@@ -103,12 +103,15 @@ impl MagazineAdapter for HarpersAdapter {
         progress.verbose(&format!("Issue title: {}", title));
         progress.verbose(&format!("Cover image: {}", cover_image_uri));
 
+        let date = parse_harpers_date(&title);
+
         IssueData {
             links,
             title,
             css: String::new(),
             cover_image_uri,
             publication_name: "Harper's Magazine".to_string(),
+            date,
         }
     }
 
@@ -150,6 +153,29 @@ impl MagazineAdapter for HarpersAdapter {
     }
 }
 
+fn parse_harpers_date(title: &str) -> Option<String> {
+    // "February 2026" → "2026-02-01"
+    const MONTHS: [(&str, &str); 12] = [
+        ("January", "01"),
+        ("February", "02"),
+        ("March", "03"),
+        ("April", "04"),
+        ("May", "05"),
+        ("June", "06"),
+        ("July", "07"),
+        ("August", "08"),
+        ("September", "09"),
+        ("October", "10"),
+        ("November", "11"),
+        ("December", "12"),
+    ];
+    let mut parts = title.split_whitespace();
+    let month_name = parts.next()?;
+    let year = parts.next()?;
+    let (_, month_num) = MONTHS.iter().find(|(m, _)| *m == month_name)?;
+    Some(format!("{}-{}-01", year, month_num))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,6 +190,29 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_harpers_date_typical() {
+        assert_eq!(
+            parse_harpers_date("February 2026"),
+            Some("2026-02-01".to_string())
+        );
+        assert_eq!(
+            parse_harpers_date("January 2025"),
+            Some("2025-01-01".to_string())
+        );
+        assert_eq!(
+            parse_harpers_date("December 2024"),
+            Some("2024-12-01".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_harpers_date_invalid() {
+        assert_eq!(parse_harpers_date("invalid"), None);
+        assert_eq!(parse_harpers_date(""), None);
+        assert_eq!(parse_harpers_date("Octember 2026"), None);
+    }
+
+    #[test]
     fn test_extract_article_links_from_harpers_issue() {
         let doc = load_html_fixture("src/test/harpers/issue.html");
         let progress = Progress::new(Verbosity::Quiet);
@@ -172,6 +221,7 @@ mod tests {
 
         assert!(!issue.links.is_empty(), "Expected at least one article link");
         assert_eq!(issue.title, "February 2026");
+        assert_eq!(issue.date, Some("2026-02-01".to_string()));
         assert!(
             issue.links.iter().all(|l| {
                 l.starts_with("https://harpers.org/archive/")

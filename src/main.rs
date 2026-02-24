@@ -161,6 +161,7 @@ fn main() -> Result<()> {
         &issue.title,
         &issue.publication_name,
         &filename,
+        issue.date.as_deref(),
         &output,
         articles,
         &issue.css,
