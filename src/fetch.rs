@@ -1,7 +1,7 @@
 use crate::progress::Progress;
 use anyhow::Result;
 use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderValue, COOKIE};
+use reqwest::header::{COOKIE, HeaderMap, HeaderValue};
 use scraper::Html;
 use std::fs::File;
 use std::io::copy;

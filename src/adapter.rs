@@ -7,7 +7,6 @@ pub struct IssueData {
     pub css: String,
     pub cover_image_uri: String,
     pub publication_name: String,
-    pub date: Option<String>,
 }
 
 pub struct ArticleData {

@@ -8,8 +8,7 @@ pub enum MagazineSource {
 }
 
 pub fn detect_source(url: &str) -> Option<MagazineSource> {
-    let lrb_re =
-        Regex::new(r"^https://www\.lrb\.co\.uk/the-paper/v\d{2}/n\d{2}/?$").unwrap();
+    let lrb_re = Regex::new(r"^https://www\.lrb\.co\.uk/the-paper/v\d{2}/n\d{2}/?$").unwrap();
     let harpers_re = Regex::new(r"^https://harpers\.org/archive/\d{4}/\d{2}/?$").unwrap();
 
     if lrb_re.is_match(url) {
@@ -80,7 +79,10 @@ mod tests {
     fn test_invalid_protocol_should_fail() {
         let url = "http://www.lrb.co.uk/the-paper/v47/n06";
         let result = validate_magazine_url(url);
-        assert!(result.is_err(), "Expected http:// to fail (must be https://)");
+        assert!(
+            result.is_err(),
+            "Expected http:// to fail (must be https://)"
+        );
     }
 
     #[test]

@@ -4,7 +4,7 @@ use anyhow::Result;
 use epub_builder::{EpubBuilder, EpubContent, ReferenceType, ZipLibrary};
 use regex::Regex;
 use reqwest::blocking::Client;
-use std::fs::{remove_file, File};
+use std::fs::{File, remove_file};
 use std::path::PathBuf;
 
 pub fn build_epub(
@@ -12,7 +12,6 @@ pub fn build_epub(
     title: &str,
     publication_name: &str,
     filename: &str,
-    date: Option<&str>,
     output: &PathBuf,
     articles: Vec<(String, String)>,
     css_sheet: &str,
@@ -22,9 +21,6 @@ pub fn build_epub(
     let mut epub = EpubBuilder::new(ZipLibrary::new()?)?;
     epub.metadata("title", title)?
         .metadata("author", publication_name)?;
-    if let Some(d) = date {
-        epub.metadata("date", d)?;
-    }
 
     progress.next("Downloading cover…");
     if !image_uri.trim().is_empty() && image_uri.starts_with("http") {

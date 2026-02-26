@@ -15,7 +15,7 @@ use harpers_adapter::HarpersAdapter;
 use london_review_adapter::LondonReviewAdapter;
 use progress::{Progress, Verbosity};
 use std::path::PathBuf;
-use validation::{detect_source, validate_magazine_url, MagazineSource};
+use validation::{MagazineSource, detect_source, validate_magazine_url};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -161,7 +161,6 @@ fn main() -> Result<()> {
         &issue.title,
         &issue.publication_name,
         &filename,
-        issue.date.as_deref(),
         &output,
         articles,
         &issue.css,

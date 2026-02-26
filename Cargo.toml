@@ -1,6 +1,6 @@
 [package]
 name = "magaziner"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2024"
 authors = ["Colbs McDolbs"]
 description = "CLI tool that downloads LRB and Harper's Magazine issues and generates EPUB files for e-readers"

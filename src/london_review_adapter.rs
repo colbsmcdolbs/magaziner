@@ -48,15 +48,12 @@ impl MagazineAdapter for LondonReviewAdapter {
         progress.verbose(&format!("Issue title: {}", title));
         progress.verbose(&format!("Cover image: {}", cover_image_uri));
 
-        let date = parse_lrb_date(&title);
-
         IssueData {
             links,
             title,
             css,
             cover_image_uri,
             publication_name: "London Review of Books".to_string(),
-            date,
         }
     }
 
@@ -94,32 +91,6 @@ impl MagazineAdapter for LondonReviewAdapter {
     }
 }
 
-fn parse_lrb_date(title: &str) -> Option<String> {
-    // "Vol.99 No. 3 · 15 March 2025" → "2025-03-15"
-    const MONTHS: [(&str, &str); 12] = [
-        ("January", "01"),
-        ("February", "02"),
-        ("March", "03"),
-        ("April", "04"),
-        ("May", "05"),
-        ("June", "06"),
-        ("July", "07"),
-        ("August", "08"),
-        ("September", "09"),
-        ("October", "10"),
-        ("November", "11"),
-        ("December", "12"),
-    ];
-    // Take the segment after the last '·'
-    let date_part = title.rsplit('·').next()?.trim();
-    let mut parts = date_part.split_whitespace();
-    let day: u32 = parts.next()?.parse().ok()?;
-    let month_name = parts.next()?;
-    let year = parts.next()?;
-    let (_, month_num) = MONTHS.iter().find(|(m, _)| *m == month_name)?;
-    Some(format!("{}-{}-{:02}", year, month_num, day))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,40 +105,22 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_lrb_date_typical() {
-        assert_eq!(
-            parse_lrb_date("Vol.99 No. 3 · 15 March 2025"),
-            Some("2025-03-15".to_string())
-        );
-        assert_eq!(
-            parse_lrb_date("Vol.47 No. 1 · 2 January 2025"),
-            Some("2025-01-02".to_string())
-        );
-        assert_eq!(
-            parse_lrb_date("Vol.46 No. 24 · 19 December 2024"),
-            Some("2024-12-19".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_lrb_date_invalid() {
-        assert_eq!(parse_lrb_date("no date here"), None);
-        assert_eq!(parse_lrb_date(""), None);
-        assert_eq!(parse_lrb_date("Vol.99 No. 3 · not a date"), None);
-    }
-
-    #[test]
     fn test_extract_article_links_from_issue() {
         let doc = load_html_fixture("src/test/lrb/issue.html");
         let progress = Progress::new(Verbosity::Quiet);
         let adapter = LondonReviewAdapter;
         let issue = adapter.extract_issue(&doc, &progress);
 
-        assert!(!issue.links.is_empty(), "Expected at least one article link");
-        assert_eq!(issue.title, "Vol.99 No. 3 · 15 March 2025");
-        assert_eq!(issue.date, Some("2025-03-15".to_string()));
         assert!(
-            issue.links.iter().all(|l| l.starts_with("https://www.lrb.co.uk")),
+            !issue.links.is_empty(),
+            "Expected at least one article link"
+        );
+        assert_eq!(issue.title, "Vol.99 No. 3 · 15 March 2025");
+        assert!(
+            issue
+                .links
+                .iter()
+                .all(|l| l.starts_with("https://www.lrb.co.uk")),
             "All links should be absolute LRB URLs"
         );
         assert!(!issue.css.is_empty());
@@ -182,6 +135,9 @@ mod tests {
         let article = adapter.extract_article(&doc, &progress);
 
         assert!(!article.title.is_empty(), "Article should have a title");
-        assert!(article.body.len() > 100, "Article body should be long enough");
+        assert!(
+            article.body.len() > 100,
+            "Article body should be long enough"
+        );
     }
 }
