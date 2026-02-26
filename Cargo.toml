@@ -1,6 +1,6 @@
 [package]
 name = "magaziner"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Colbs McDolbs"]
 description = "CLI tool that downloads LRB and Harper's Magazine issues and generates EPUB files for e-readers"
@@ -11,7 +11,7 @@ keywords = ["epub", "magazine", "ebook", "cli", "scraper"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
 scraper = "0.24"
 epub-builder = "0.8"
 anyhow = "1"

@@ -28,9 +28,17 @@ Magazine websites are noisy, require a live internet connection, and often restr
 
 ## Installation
 
-### Prerequisites
+### Homebrew (macOS and Linux)
 
-- [Rust](https://rustup.rs/) (edition 2024, stable toolchain)
+```bash
+brew install colbsmcdolbs/tap/magaziner
+```
+
+### cargo (any platform with Rust)
+
+```bash
+cargo install magaziner
+```
 
 ### Build from source
 
