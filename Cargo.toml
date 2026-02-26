@@ -2,6 +2,13 @@
 name = "magaziner"
 version = "0.1.0"
 edition = "2024"
+authors = ["Colbs McDolbs"]
+description = "CLI tool that downloads LRB and Harper's Magazine issues and generates EPUB files for e-readers"
+license = "MIT"
+repository = "https://github.com/colbsmcdolbs/magaziner"
+homepage = "https://github.com/colbsmcdolbs/magaziner"
+keywords = ["epub", "magazine", "ebook", "cli", "scraper"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking", "json"] }
@@ -11,4 +18,9 @@ anyhow = "1"
 clap = { version = "4.5.51", features = ["derive"] }
 regex = "1.12.2"
 url = "2.5.7"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 

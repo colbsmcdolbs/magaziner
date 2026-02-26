@@ -35,7 +35,7 @@ Magazine websites are noisy, require a live internet connection, and often restr
 ### Build from source
 
 ```bash
-git clone https://github.com/yourusername/magaziner
+git clone https://github.com/colbsmcdolbs/magaziner
 cd magaziner
 cargo build --release
 ```
